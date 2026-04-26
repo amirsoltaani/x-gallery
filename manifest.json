@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "X Gallery View",
+  "version": "0.1",
+  "description": "Personal gallery view for X timeline media",
+  "permissions": ["storage"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*"],
+      "js": ["content.js"],
+      "css": ["gallery.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Toggle Gallery View"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
