@@ -75,7 +75,7 @@ function scan() {
 let fillTimer = null;
 let lastFillSize = 0;
 let fillRetries = 0;
-const MAX_FILL_RETRIES = 5;
+const MAX_FILL_RETRIES = 8;
 
 function ensureGalleryFillsScreen() {
   if (!galleryEl || !galleryOpen) return;
@@ -92,7 +92,7 @@ function ensureGalleryFillsScreen() {
       lastFillSize = collected.size;
     }
     scrollUnderlyingPage();
-    fillTimer = setTimeout(ensureGalleryFillsScreen, 500);
+    fillTimer = setTimeout(ensureGalleryFillsScreen, 1000);
   }
 }
 
@@ -196,6 +196,8 @@ function onGalleryScroll() {
   if (!el) return;
   const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 500;
   if (nearBottom) {
+    // Reset retries when user actively scrolls to bottom
+    fillRetries = 0;
     ensureGalleryFillsScreen();
   }
 }
