@@ -91,3 +91,52 @@ body.xg-no-scroll::-webkit-scrollbar {
   border-radius: 4px;
   font-size: 12px;
 }
+
+/* Video Player Modal */
+#xg-player-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#xg-player-modal .xg-player-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+#xg-player-modal .xg-player-container {
+  position: relative;
+  max-width: 90vw;
+  max-height: 85vh;
+  z-index: 1;
+}
+
+#xg-player-modal .xg-player-close {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  cursor: pointer;
+  padding: 4px 12px;
+  line-height: 1;
+}
+
+#xg-player-modal .xg-player-close:hover {
+  color: #1d9bf0;
+}
+
+#xg-player-modal .xg-player-video {
+  display: block;
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: 8px;
+  background: #000;
+  outline: none;
+}

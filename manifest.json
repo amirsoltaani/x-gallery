@@ -1,13 +1,18 @@
 {
   "manifest_version": 3,
   "name": "X Gallery View",
-  "version": "0.1",
+  "version": "0.2",
   "description": "Personal gallery view for X timeline media",
-  "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "permissions": ["webRequest"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*",
+    "https://video.twimg.com/*"
+  ],
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://twitter.com/*"],
-      "js": ["content.js"],
+      "js": ["hls.min.js", "content.js"],
       "css": ["gallery.css"],
       "run_at": "document_idle"
     }

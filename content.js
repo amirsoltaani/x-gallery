@@ -31,10 +31,17 @@ function extractMedia(article) {
     }
   });
 
-  // Video poster (thumbnail) as a fallback marker for video tweets
+  // Video poster (thumbnail) and video ID for inline playback
   let videoPoster = null;
+  let videoId = null;
   const video = article.querySelector('video');
-  if (video && video.poster) videoPoster = video.poster;
+  if (video && video.poster) {
+    videoPoster = video.poster;
+    const vidMatch = video.poster.match(
+      /(?:ext_tw_video_thumb|amplify_video_thumb)\/(\d+)\//
+    );
+    if (vidMatch) videoId = vidMatch[1];
+  }
 
   if (images.length === 0 && !videoPoster) return;
 
@@ -42,6 +49,7 @@ function extractMedia(article) {
   collected.set(id, {
     images,
     videoPoster,
+    videoId,
     link: link ? link.href : null,
     author: getAuthor(article),
   });
@@ -82,6 +90,10 @@ function renderGallery() {
     cell.rel = 'noopener';
     if (data.videoPoster && data.images.length === 0) {
       cell.classList.add('xg-video');
+      cell.addEventListener('click', (e) => {
+        e.preventDefault();
+        openVideoPlayer(data);
+      });
     }
     const img = document.createElement('img');
     img.src = src;
@@ -150,6 +162,85 @@ function closeGallery() {
   rendered.clear();
   galleryEl = null;
   galleryOpen = false;
+}
+
+// --- Video Player ---
+
+function openVideoPlayer(data) {
+  if (!data.videoId) {
+    window.open(data.link, '_blank');
+    return;
+  }
+  chrome.runtime.sendMessage(
+    { action: 'getVideoUrl', videoId: data.videoId },
+    (response) => {
+      if (!response || !response.url) {
+        window.open(data.link, '_blank');
+        return;
+      }
+      showPlayerModal(response.url);
+    }
+  );
+}
+
+function showPlayerModal(m3u8Url) {
+  closeVideoPlayer();
+
+  const modal = document.createElement('div');
+  modal.id = 'xg-player-modal';
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'xg-player-backdrop';
+  backdrop.addEventListener('click', closeVideoPlayer);
+
+  const container = document.createElement('div');
+  container.className = 'xg-player-container';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'xg-player-close';
+  closeBtn.textContent = '\u00d7';
+  closeBtn.addEventListener('click', closeVideoPlayer);
+
+  const videoEl = document.createElement('video');
+  videoEl.className = 'xg-player-video';
+  videoEl.controls = true;
+  videoEl.autoplay = true;
+  videoEl.playsInline = true;
+
+  container.appendChild(closeBtn);
+  container.appendChild(videoEl);
+  modal.appendChild(backdrop);
+  modal.appendChild(container);
+  document.body.appendChild(modal);
+
+  // Initialize HLS playback
+  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(m3u8Url);
+    hls.attachMedia(videoEl);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      videoEl.play();
+    });
+    modal._hls = hls;
+  } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari native HLS
+    videoEl.src = m3u8Url;
+    videoEl.play();
+  }
+
+  // Close on Escape
+  modal._keyHandler = (e) => {
+    if (e.key === 'Escape') closeVideoPlayer();
+  };
+  document.addEventListener('keydown', modal._keyHandler);
+}
+
+function closeVideoPlayer() {
+  const modal = document.getElementById('xg-player-modal');
+  if (!modal) return;
+  if (modal._hls) modal._hls.destroy();
+  if (modal._keyHandler) document.removeEventListener('keydown', modal._keyHandler);
+  modal.remove();
 }
 
 function toggleGallery() {
