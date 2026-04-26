@@ -58,22 +58,40 @@ body.xg-no-scroll::-webkit-scrollbar {
   overflow: hidden;
   background: #22303c;
   border-radius: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-#xg-overlay .xg-cell img,
-#xg-overlay .xg-cell video {
+#xg-overlay .xg-cell img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.2s;
 }
 
-#xg-overlay .xg-cell:hover img,
-#xg-overlay .xg-cell:hover video {
+#xg-overlay .xg-cell:hover img {
   transform: scale(1.03);
 }
 
-/* Play icon removed — videos autoplay in grid */
+/* Video always fixed-positioned, sized to match cell by default */
+#xg-overlay .xg-cell video {
+  position: fixed;
+  top: var(--cell-y);
+  left: var(--cell-x);
+  transform: translate(-50%, -50%);
+  width: var(--cell-w);
+  height: var(--cell-w);
+  object-fit: cover;
+  transition: width 0.25s ease, height 0.25s ease, object-fit 0s;
+  pointer-events: none;
+}
+
+/* Video cells pop out at native aspect ratio on hover */
+#xg-overlay .xg-cell.xg-video.xg-popped video {
+  width: var(--pop-w);
+  height: var(--pop-h);
+  object-fit: contain;
+  z-index: 9999;
+}
 
 #xg-overlay .xg-badge {
   position: absolute;

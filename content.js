@@ -105,9 +105,19 @@ function renderGallery() {
       vid.setAttribute('playsinline', '');
       vid.dataset.videoId = data.videoId || '';
       cell.appendChild(vid);
-      // Unmute on hover, mute on leave
-      cell.addEventListener('mouseenter', () => { vid.muted = false; });
-      cell.addEventListener('mouseleave', () => { vid.muted = true; });
+      // Pop out at native aspect ratio on hover, unmute
+      cell.addEventListener('mouseenter', () => {
+        vid.muted = false;
+        syncAllVideoPositions();
+        const cellSize = cell.getBoundingClientRect().width;
+        cell.style.setProperty('--pop-w', (cellSize * 1.8) + 'px');
+        cell.style.setProperty('--pop-h', (cellSize * 1.8) + 'px');
+        cell.classList.add('xg-popped');
+      });
+      cell.addEventListener('mouseleave', () => {
+        vid.muted = true;
+        cell.classList.remove('xg-popped');
+      });
       // Observe for visibility-based playback
       if (videoObserver) videoObserver.observe(cell);
     } else {
@@ -126,6 +136,7 @@ function renderGallery() {
   }
 
   galleryEl.querySelector('.xg-title').textContent = `Gallery (${collected.size})`;
+  requestAnimationFrame(syncAllVideoPositions);
   ensureGalleryFillsScreen();
 }
 
@@ -138,12 +149,22 @@ function scrollUnderlyingPage() {
   }, 100);
 }
 
+function syncAllVideoPositions() {
+  if (!galleryEl) return;
+  galleryEl.querySelectorAll('.xg-cell.xg-video').forEach(cell => {
+    const rect = cell.getBoundingClientRect();
+    cell.style.setProperty('--cell-x', (rect.left + rect.width / 2) + 'px');
+    cell.style.setProperty('--cell-y', (rect.top + rect.height / 2) + 'px');
+    cell.style.setProperty('--cell-w', rect.width + 'px');
+  });
+}
+
 function onGalleryScroll() {
+  syncAllVideoPositions();
   const el = galleryEl;
   if (!el) return;
   const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 500;
   if (nearBottom) {
-    // Reuse the fill loop — it keeps scrolling until the gallery has more content
     ensureGalleryFillsScreen();
   }
 }
