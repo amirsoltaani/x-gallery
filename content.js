@@ -6,6 +6,12 @@ const activeHls = new Map(); // videoElement -> Hls instance
 let galleryOpen = false;
 let galleryEl = null;
 let videoObserver = null;
+let autoplayMode = 'off'; // 'off' | 'hover' | 'all'
+
+// Load saved autoplay preference
+chrome.storage.local.get('autoplayMode', (data) => {
+  if (data.autoplayMode) autoplayMode = data.autoplayMode;
+});
 
 function getTweetId(article) {
   const link = article.querySelector('a[href*="/status/"]');
@@ -107,6 +113,7 @@ function renderGallery() {
       cell.appendChild(vid);
       // Pop out at native aspect ratio on hover, unmute
       cell.addEventListener('mouseenter', () => {
+        if (autoplayMode !== 'all') startCellVideo(cell);
         vid.muted = false;
         syncAllVideoPositions();
         const cellSize = cell.getBoundingClientRect().width;
@@ -117,6 +124,7 @@ function renderGallery() {
       cell.addEventListener('mouseleave', () => {
         vid.muted = true;
         cell.classList.remove('xg-popped');
+        if (autoplayMode !== 'all') stopCellVideo(cell);
       });
       // Observe for visibility-based playback
       if (videoObserver) videoObserver.observe(cell);
@@ -213,6 +221,7 @@ function destroyAllCellVideos() {
 function setupVideoObserver() {
   if (videoObserver) videoObserver.disconnect();
   videoObserver = new IntersectionObserver((entries) => {
+    if (autoplayMode !== 'all') return;
     for (const entry of entries) {
       if (entry.isIntersecting) {
         startCellVideo(entry.target);
@@ -223,6 +232,29 @@ function setupVideoObserver() {
   }, { root: galleryEl, threshold: 0.1 });
 }
 
+const autoplayLabels = { off: 'Off', all: 'On' };
+
+function setAutoplayMode(mode) {
+  autoplayMode = mode;
+  chrome.storage.local.set({ autoplayMode: mode });
+  // Update button text
+  const btn = galleryEl && galleryEl.querySelector('.xg-autoplay');
+  if (btn) btn.textContent = `Autoplay: ${autoplayLabels[mode]}`;
+  // Stop all currently playing cell videos
+  destroyAllCellVideos();
+  // If 'all', restart observer-based playback
+  if (mode === 'all' && galleryEl) {
+    setupVideoObserver();
+    galleryEl.querySelectorAll('.xg-cell.xg-video').forEach(cell => {
+      videoObserver.observe(cell);
+    });
+  }
+}
+
+function cycleAutoplayMode() {
+  setAutoplayMode(autoplayMode === 'off' ? 'all' : 'off');
+}
+
 function openGallery() {
   if (galleryEl) return;
   galleryEl = document.createElement('div');
@@ -230,7 +262,10 @@ function openGallery() {
   galleryEl.innerHTML = `
     <div class="xg-bar">
       <span class="xg-title">Gallery (${collected.size})</span>
-      <button class="xg-close">Close</button>
+      <div class="xg-bar-actions">
+        <button class="xg-autoplay">Autoplay: ${autoplayLabels[autoplayMode]}</button>
+        <button class="xg-close">Close</button>
+      </div>
     </div>
     <div class="xg-grid"></div>
   `;
@@ -238,9 +273,13 @@ function openGallery() {
   document.documentElement.classList.add('xg-no-scroll');
   document.body.classList.add('xg-no-scroll');
   galleryEl.querySelector('.xg-close').addEventListener('click', closeGallery);
+  galleryEl.querySelector('.xg-autoplay').addEventListener('click', cycleAutoplayMode);
   galleryEl.addEventListener('scroll', onGalleryScroll);
   galleryOpen = true;
   setupVideoObserver();
+  if (autoplayMode === 'all') {
+    // Observer will handle starting videos after renderGallery
+  }
   renderGallery();
 }
 

@@ -35,6 +35,12 @@ body.xg-no-scroll::-webkit-scrollbar {
   font-weight: 600;
 }
 
+#xg-overlay .xg-bar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 #xg-overlay .xg-close {
   background: #1d9bf0;
   color: #fff;
@@ -43,6 +49,21 @@ body.xg-no-scroll::-webkit-scrollbar {
   border-radius: 999px;
   cursor: pointer;
   font-weight: 600;
+}
+
+#xg-overlay .xg-autoplay {
+  background: #38444d;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+#xg-overlay .xg-autoplay:hover {
+  background: #4a5568;
 }
 
 #xg-overlay .xg-grid {
