@@ -3,7 +3,6 @@
   "name": "X Gallery View",
   "version": "0.1",
   "description": "Personal gallery view for X timeline media",
-  "permissions": ["storage"],
   "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
   "content_scripts": [
     {
