@@ -2,8 +2,10 @@
 
 const collected = new Map(); // tweetId -> { images: [], videoPoster, link, author }
 const rendered = new Set();  // tweetIds already in the grid
+const activeHls = new Map(); // videoElement -> Hls instance
 let galleryOpen = false;
 let galleryEl = null;
+let videoObserver = null;
 
 function getTweetId(article) {
   const link = article.querySelector('a[href*="/status/"]');
@@ -94,11 +96,26 @@ function renderGallery() {
         e.preventDefault();
         openVideoPlayer(data);
       });
+      // Use a <video> element for autoplay in grid
+      const vid = document.createElement('video');
+      vid.poster = data.videoPoster;
+      vid.muted = true;
+      vid.loop = true;
+      vid.playsInline = true;
+      vid.setAttribute('playsinline', '');
+      vid.dataset.videoId = data.videoId || '';
+      cell.appendChild(vid);
+      // Unmute on hover, mute on leave
+      cell.addEventListener('mouseenter', () => { vid.muted = false; });
+      cell.addEventListener('mouseleave', () => { vid.muted = true; });
+      // Observe for visibility-based playback
+      if (videoObserver) videoObserver.observe(cell);
+    } else {
+      const img = document.createElement('img');
+      img.src = src;
+      img.loading = 'lazy';
+      cell.appendChild(img);
     }
-    const img = document.createElement('img');
-    img.src = src;
-    img.loading = 'lazy';
-    cell.appendChild(img);
     if (data.images.length > 1) {
       const badge = document.createElement('span');
       badge.className = 'xg-badge';
@@ -131,6 +148,60 @@ function onGalleryScroll() {
   }
 }
 
+function startCellVideo(cell) {
+  const vid = cell.querySelector('video');
+  if (!vid || !vid.dataset.videoId || activeHls.has(vid)) return;
+  chrome.runtime.sendMessage(
+    { action: 'getVideoUrl', videoId: vid.dataset.videoId },
+    (response) => {
+      if (!response || !response.url) return;
+      if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(response.url);
+        hls.attachMedia(vid);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => { vid.play(); });
+        activeHls.set(vid, hls);
+      } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+        vid.src = response.url;
+        vid.play();
+      }
+    }
+  );
+}
+
+function stopCellVideo(cell) {
+  const vid = cell.querySelector('video');
+  if (!vid) return;
+  const hls = activeHls.get(vid);
+  if (hls) {
+    hls.destroy();
+    activeHls.delete(vid);
+  }
+  vid.pause();
+  vid.removeAttribute('src');
+  vid.load(); // reset to poster
+}
+
+function destroyAllCellVideos() {
+  for (const [vid, hls] of activeHls) {
+    hls.destroy();
+  }
+  activeHls.clear();
+}
+
+function setupVideoObserver() {
+  if (videoObserver) videoObserver.disconnect();
+  videoObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        startCellVideo(entry.target);
+      } else {
+        stopCellVideo(entry.target);
+      }
+    }
+  }, { root: galleryEl, threshold: 0.1 });
+}
+
 function openGallery() {
   if (galleryEl) return;
   galleryEl = document.createElement('div');
@@ -148,11 +219,14 @@ function openGallery() {
   galleryEl.querySelector('.xg-close').addEventListener('click', closeGallery);
   galleryEl.addEventListener('scroll', onGalleryScroll);
   galleryOpen = true;
+  setupVideoObserver();
   renderGallery();
 }
 
 function closeGallery() {
   if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
+  destroyAllCellVideos();
+  if (videoObserver) { videoObserver.disconnect(); videoObserver = null; }
   if (galleryEl) {
     galleryEl.removeEventListener('scroll', onGalleryScroll);
     galleryEl.remove();
