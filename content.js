@@ -73,6 +73,9 @@ function scan() {
 }
 
 let fillTimer = null;
+let lastFillSize = 0;
+let fillRetries = 0;
+const MAX_FILL_RETRIES = 5;
 
 function ensureGalleryFillsScreen() {
   if (!galleryEl || !galleryOpen) return;
@@ -80,6 +83,14 @@ function ensureGalleryFillsScreen() {
   // If the gallery has no room to scroll down, keep loading more
   const remaining = galleryEl.scrollHeight - galleryEl.scrollTop - galleryEl.clientHeight;
   if (remaining < 500) {
+    // Stop if no new content was loaded after several attempts
+    if (collected.size === lastFillSize) {
+      fillRetries++;
+      if (fillRetries >= MAX_FILL_RETRIES) return;
+    } else {
+      fillRetries = 0;
+      lastFillSize = collected.size;
+    }
     scrollUnderlyingPage();
     fillTimer = setTimeout(ensureGalleryFillsScreen, 500);
   }
@@ -291,6 +302,8 @@ function openGallery() {
   galleryEl.querySelector('.xg-autoplay').addEventListener('click', cycleAutoplayMode);
   galleryEl.addEventListener('scroll', onGalleryScroll);
   galleryOpen = true;
+  lastFillSize = 0;
+  fillRetries = 0;
   setupVideoObserver();
   if (autoplayMode === 'all') {
     // Observer will handle starting videos after renderGallery
