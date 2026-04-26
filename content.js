@@ -1,6 +1,7 @@
 // Captures media from tweets as they appear and shows them in a grid overlay.
 
 const collected = new Map(); // tweetId -> { images: [], videoPoster, link, author }
+const rendered = new Set();  // tweetIds already in the grid
 let galleryOpen = false;
 let galleryEl = null;
 
@@ -52,13 +53,27 @@ function scan() {
   document.querySelectorAll('article[data-testid="tweet"]').forEach(extractMedia);
 }
 
+let fillTimer = null;
+
+function ensureGalleryFillsScreen() {
+  if (!galleryEl || !galleryOpen) return;
+  if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
+  // If the gallery has no room to scroll down, keep loading more
+  const remaining = galleryEl.scrollHeight - galleryEl.scrollTop - galleryEl.clientHeight;
+  if (remaining < 500) {
+    scrollUnderlyingPage();
+    fillTimer = setTimeout(ensureGalleryFillsScreen, 500);
+  }
+}
+
 function renderGallery() {
   if (!galleryEl) return;
   const grid = galleryEl.querySelector('.xg-grid');
-  grid.innerHTML = '';
 
   for (const [id, data] of collected) {
+    if (rendered.has(id)) continue;
     if (data.images.length === 0 && !data.videoPoster) continue;
+    rendered.add(id);
     const src = data.images[0] || data.videoPoster;
     const cell = document.createElement('a');
     cell.className = 'xg-cell';
@@ -80,21 +95,27 @@ function renderGallery() {
     }
     grid.appendChild(cell);
   }
+
+  galleryEl.querySelector('.xg-title').textContent = `Gallery (${collected.size})`;
+  ensureGalleryFillsScreen();
 }
 
 function scrollUnderlyingPage() {
-  // Scroll the underlying X timeline to the bottom so it triggers infinite scroll
-  window.scrollTo(0, document.documentElement.scrollHeight);
+  // Scroll up first then back down to re-trigger X's IntersectionObserver
+  // A no-op scrollTo (already at bottom) won't fire new events
+  window.scrollTo(0, Math.max(0, window.scrollY - 2000));
+  setTimeout(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  }, 100);
 }
 
 function onGalleryScroll() {
-  // When user reaches near the bottom of the gallery, scroll the underlying page
-  // to trigger X's infinite scroll and load more tweets
   const el = galleryEl;
   if (!el) return;
   const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 500;
   if (nearBottom) {
-    scrollUnderlyingPage();
+    // Reuse the fill loop — it keeps scrolling until the gallery has more content
+    ensureGalleryFillsScreen();
   }
 }
 
@@ -110,20 +131,23 @@ function openGallery() {
     <div class="xg-grid"></div>
   `;
   document.body.appendChild(galleryEl);
+  document.documentElement.classList.add('xg-no-scroll');
+  document.body.classList.add('xg-no-scroll');
   galleryEl.querySelector('.xg-close').addEventListener('click', closeGallery);
   galleryEl.addEventListener('scroll', onGalleryScroll);
   galleryOpen = true;
   renderGallery();
-
-  // Scroll the underlying page to the bottom to trigger loading more content
-  scrollUnderlyingPage();
 }
 
 function closeGallery() {
+  if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
   if (galleryEl) {
     galleryEl.removeEventListener('scroll', onGalleryScroll);
     galleryEl.remove();
   }
+  document.documentElement.classList.remove('xg-no-scroll');
+  document.body.classList.remove('xg-no-scroll');
+  rendered.clear();
   galleryEl = null;
   galleryOpen = false;
 }
