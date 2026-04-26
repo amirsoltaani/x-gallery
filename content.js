@@ -9,9 +9,12 @@ let videoObserver = null;
 let autoplayMode = 'off'; // 'off' | 'hover' | 'all'
 
 // Load saved autoplay preference
-chrome.storage.local.get('autoplayMode', (data) => {
-  if (data.autoplayMode) autoplayMode = data.autoplayMode;
-});
+try {
+  chrome.storage.local.get('autoplayMode', (data) => {
+    if (chrome.runtime.lastError) return;
+    if (data.autoplayMode) autoplayMode = data.autoplayMode;
+  });
+} catch (e) { /* noop */ }
 
 function getTweetId(article) {
   const link = article.querySelector('a[href*="/status/"]');
@@ -180,22 +183,24 @@ function onGalleryScroll() {
 function startCellVideo(cell) {
   const vid = cell.querySelector('video');
   if (!vid || !vid.dataset.videoId || activeHls.has(vid)) return;
-  chrome.runtime.sendMessage(
-    { action: 'getVideoUrl', videoId: vid.dataset.videoId },
-    (response) => {
-      if (!response || !response.url) return;
-      if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(response.url);
-        hls.attachMedia(vid);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => { vid.play(); });
-        activeHls.set(vid, hls);
-      } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-        vid.src = response.url;
-        vid.play();
+  try {
+    chrome.runtime.sendMessage(
+      { action: 'getVideoUrl', videoId: vid.dataset.videoId },
+      (response) => {
+        if (chrome.runtime.lastError || !response || !response.url) return;
+        if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+          const hls = new Hls();
+          hls.loadSource(response.url);
+          hls.attachMedia(vid);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => { vid.play(); });
+          activeHls.set(vid, hls);
+        } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+          vid.src = response.url;
+          vid.play();
+        }
       }
-    }
-  );
+    );
+  } catch (e) { /* extension context invalidated */ }
 }
 
 function stopCellVideo(cell) {
@@ -236,7 +241,7 @@ const autoplayLabels = { off: 'Off', all: 'On' };
 
 function setAutoplayMode(mode) {
   autoplayMode = mode;
-  chrome.storage.local.set({ autoplayMode: mode });
+  try { chrome.storage.local.set({ autoplayMode: mode }); } catch (e) { /* noop */ }
   // Update button text
   const btn = galleryEl && galleryEl.querySelector('.xg-autoplay');
   if (btn) btn.textContent = `Autoplay: ${autoplayLabels[mode]}`;
