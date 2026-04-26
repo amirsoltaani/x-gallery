@@ -201,11 +201,11 @@ function startCellVideo(cell) {
           const hls = new Hls();
           hls.loadSource(response.url);
           hls.attachMedia(vid);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => { vid.play(); });
+          hls.on(Hls.Events.MANIFEST_PARSED, () => { vid.play().catch(() => {}); });
           activeHls.set(vid, hls);
         } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
           vid.src = response.url;
-          vid.play();
+          vid.play().catch(() => {});
         }
       }
     );
@@ -215,12 +215,13 @@ function startCellVideo(cell) {
 function stopCellVideo(cell) {
   const vid = cell.querySelector('video');
   if (!vid) return;
+  vid.pause();
   const hls = activeHls.get(vid);
   if (hls) {
+    hls.detachMedia();
     hls.destroy();
     activeHls.delete(vid);
   }
-  vid.pause();
   vid.removeAttribute('src');
   vid.load(); // reset to poster
 }
@@ -367,7 +368,7 @@ function showPlayerModal(m3u8Url) {
     hls.loadSource(m3u8Url);
     hls.attachMedia(videoEl);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      videoEl.play();
+      videoEl.play().catch(() => {});
     });
     modal._hls = hls;
   } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
