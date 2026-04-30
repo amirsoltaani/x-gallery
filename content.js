@@ -113,8 +113,9 @@ function renderGallery() {
     if (data.videoPoster && data.images.length === 0) {
       cell.classList.add('xg-video');
       cell.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
         e.preventDefault();
-        openVideoPlayer(data);
+        openLightbox(id, 0);
       });
       // Use a <video> element for autoplay in grid
       const vid = document.createElement('video');
@@ -143,10 +144,26 @@ function renderGallery() {
       // Observe for visibility-based playback
       if (videoObserver) videoObserver.observe(cell);
     } else {
+      cell.classList.add('xg-photo');
+      cell.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        openLightbox(id, 0);
+      });
       const img = document.createElement('img');
       img.src = src;
       img.loading = 'lazy';
       cell.appendChild(img);
+      cell.addEventListener('mouseenter', () => {
+        syncAllVideoPositions();
+        const cellSize = cell.getBoundingClientRect().width;
+        cell.style.setProperty('--pop-w', (cellSize * 1.8) + 'px');
+        cell.style.setProperty('--pop-h', (cellSize * 1.8) + 'px');
+        cell.classList.add('xg-popped');
+      });
+      cell.addEventListener('mouseleave', () => {
+        cell.classList.remove('xg-popped');
+      });
     }
     if (data.images.length > 1) {
       const badge = document.createElement('span');
@@ -174,7 +191,7 @@ function scrollUnderlyingPage() {
 let syncRaf = null;
 function syncAllVideoPositions() {
   if (!galleryEl) return;
-  galleryEl.querySelectorAll('.xg-cell.xg-video').forEach(cell => {
+  galleryEl.querySelectorAll('.xg-cell.xg-video, .xg-cell.xg-photo').forEach(cell => {
     const rect = cell.getBoundingClientRect();
     cell.style.setProperty('--cell-x', (rect.left + rect.width / 2) + 'px');
     cell.style.setProperty('--cell-y', (rect.top + rect.height / 2) + 'px');
@@ -315,6 +332,7 @@ function openGallery() {
 
 function closeGallery() {
   if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; }
+  closeLightbox();
   destroyAllCellVideos();
   if (videoObserver) { videoObserver.disconnect(); videoObserver = null; }
   if (galleryEl) {
@@ -328,83 +346,182 @@ function closeGallery() {
   galleryOpen = false;
 }
 
-// --- Video Player ---
+// --- Lightbox (photos + videos with arrow navigation) ---
 
-function openVideoPlayer(data) {
-  if (!data.videoId) {
-    window.open(data.link, '_blank');
-    return;
-  }
-  chrome.runtime.sendMessage(
-    { action: 'getVideoUrl', videoId: data.videoId },
-    (response) => {
-      if (!response || !response.url) {
-        window.open(data.link, '_blank');
-        return;
-      }
-      showPlayerModal(response.url);
+let lightboxState = null;
+
+function buildMediaList() {
+  const list = [];
+  for (const [id, data] of collected) {
+    if (data.images.length > 0) {
+      data.images.forEach((src, idx) => {
+        list.push({ tweetId: id, type: 'image', src, link: data.link, imageIndex: idx });
+      });
+    } else if (data.videoPoster) {
+      list.push({ tweetId: id, type: 'video', poster: data.videoPoster, videoId: data.videoId, link: data.link });
     }
-  );
+  }
+  return list;
 }
 
-function showPlayerModal(m3u8Url) {
-  closeVideoPlayer();
+function openLightbox(tweetId, imageIndex = 0) {
+  const list = buildMediaList();
+  let index = list.findIndex(item =>
+    item.tweetId === tweetId &&
+    (item.type === 'video' || item.imageIndex === imageIndex)
+  );
+  if (index < 0) index = 0;
+  if (list.length === 0) return;
+
+  closeLightbox();
 
   const modal = document.createElement('div');
-  modal.id = 'xg-player-modal';
-
-  const backdrop = document.createElement('div');
-  backdrop.className = 'xg-player-backdrop';
-  backdrop.addEventListener('click', closeVideoPlayer);
-
-  const container = document.createElement('div');
-  container.className = 'xg-player-container';
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'xg-player-close';
-  closeBtn.textContent = '\u00d7';
-  closeBtn.addEventListener('click', closeVideoPlayer);
-
-  const videoEl = document.createElement('video');
-  videoEl.className = 'xg-player-video';
-  videoEl.controls = true;
-  videoEl.autoplay = true;
-  videoEl.playsInline = true;
-
-  container.appendChild(closeBtn);
-  container.appendChild(videoEl);
-  modal.appendChild(backdrop);
-  modal.appendChild(container);
+  modal.id = 'xg-lightbox';
+  modal.innerHTML = `
+    <div class="xg-lb-backdrop"></div>
+    <button class="xg-lb-close" aria-label="Close">\u00d7</button>
+    <button class="xg-lb-prev" aria-label="Previous">\u2039</button>
+    <button class="xg-lb-next" aria-label="Next">\u203a</button>
+    <div class="xg-lb-counter"></div>
+    <div class="xg-lb-stage"></div>
+  `;
   document.body.appendChild(modal);
 
-  // Initialize HLS playback
-  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-    const hls = new Hls();
-    hls.loadSource(m3u8Url);
-    hls.attachMedia(videoEl);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      videoEl.play().catch(() => {});
-    });
-    modal._hls = hls;
-  } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
-    // Safari native HLS
-    videoEl.src = m3u8Url;
-    videoEl.play();
-  }
+  modal.querySelector('.xg-lb-backdrop').addEventListener('click', closeLightbox);
+  modal.querySelector('.xg-lb-close').addEventListener('click', closeLightbox);
+  modal.querySelector('.xg-lb-prev').addEventListener('click', () => navigateLightbox(-1));
+  modal.querySelector('.xg-lb-next').addEventListener('click', () => navigateLightbox(1));
 
-  // Close on Escape
-  modal._keyHandler = (e) => {
-    if (e.key === 'Escape') closeVideoPlayer();
+  const keyHandler = (e) => {
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowLeft') navigateLightbox(-1);
+    else if (e.key === 'ArrowRight') navigateLightbox(1);
   };
-  document.addEventListener('keydown', modal._keyHandler);
+  document.addEventListener('keydown', keyHandler);
+
+  lightboxState = { list, index, modal, hls: null, keyHandler };
+  showLightboxAt(index);
 }
 
-function closeVideoPlayer() {
-  const modal = document.getElementById('xg-player-modal');
-  if (!modal) return;
-  if (modal._hls) modal._hls.destroy();
-  if (modal._keyHandler) document.removeEventListener('keydown', modal._keyHandler);
-  modal.remove();
+function navigateLightbox(delta) {
+  if (!lightboxState) return;
+  // Re-snapshot — collected may have grown since the lightbox opened
+  lightboxState.list = buildMediaList();
+
+  const target = lightboxState.index + delta;
+  if (target < 0) return;
+  if (target < lightboxState.list.length) {
+    showLightboxAt(target);
+    return;
+  }
+  if (delta > 0) tryLoadMoreAndAdvance(target);
+}
+
+let lightboxLoadingTimer = null;
+
+function tryLoadMoreAndAdvance(target) {
+  if (!lightboxState) return;
+  const counter = lightboxState.modal.querySelector('.xg-lb-counter');
+  const nextBtn = lightboxState.modal.querySelector('.xg-lb-next');
+  counter.textContent = 'Loading more…';
+  nextBtn.disabled = true;
+
+  if (lightboxLoadingTimer) clearTimeout(lightboxLoadingTimer);
+  let attempts = 0;
+  const startSize = lightboxState.list.length;
+
+  const tick = () => {
+    if (!lightboxState) return;
+    scrollUnderlyingPage();
+    lightboxLoadingTimer = setTimeout(() => {
+      if (!lightboxState) return;
+      const newList = buildMediaList();
+      if (newList.length > startSize) {
+        lightboxState.list = newList;
+        lightboxLoadingTimer = null;
+        showLightboxAt(Math.min(target, newList.length - 1));
+        return;
+      }
+      attempts++;
+      if (attempts < 6) {
+        tick();
+      } else {
+        lightboxLoadingTimer = null;
+        showLightboxAt(lightboxState.index);
+      }
+    }, 700);
+  };
+  tick();
+}
+
+function showLightboxAt(index) {
+  if (!lightboxState) return;
+  lightboxState.index = index;
+  const item = lightboxState.list[index];
+  const stage = lightboxState.modal.querySelector('.xg-lb-stage');
+  const counter = lightboxState.modal.querySelector('.xg-lb-counter');
+  const prevBtn = lightboxState.modal.querySelector('.xg-lb-prev');
+  const nextBtn = lightboxState.modal.querySelector('.xg-lb-next');
+
+  if (lightboxState.hls) {
+    lightboxState.hls.destroy();
+    lightboxState.hls = null;
+  }
+  stage.innerHTML = '';
+
+  if (item.type === 'image') {
+    const img = document.createElement('img');
+    img.className = 'xg-lb-media';
+    img.src = item.src;
+    stage.appendChild(img);
+  } else {
+    const videoEl = document.createElement('video');
+    videoEl.className = 'xg-lb-media';
+    videoEl.controls = true;
+    videoEl.autoplay = true;
+    videoEl.playsInline = true;
+    videoEl.poster = item.poster || '';
+    stage.appendChild(videoEl);
+
+    if (item.videoId) {
+      try {
+        chrome.runtime.sendMessage(
+          { action: 'getVideoUrl', videoId: item.videoId },
+          (response) => {
+            if (chrome.runtime.lastError) return;
+            if (!lightboxState || lightboxState.list[lightboxState.index] !== item) return;
+            if (!response || !response.url) return;
+            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+              const hls = new Hls();
+              hls.loadSource(response.url);
+              hls.attachMedia(videoEl);
+              hls.on(Hls.Events.MANIFEST_PARSED, () => { videoEl.play().catch(() => {}); });
+              lightboxState.hls = hls;
+            } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+              videoEl.src = response.url;
+              videoEl.play().catch(() => {});
+            }
+          }
+        );
+      } catch (e) { /* extension context invalidated */ }
+    }
+  }
+
+  counter.textContent = `${index + 1} / ${lightboxState.list.length}`;
+  prevBtn.disabled = index === 0;
+  nextBtn.disabled = index === lightboxState.list.length - 1;
+}
+
+function closeLightbox() {
+  if (lightboxLoadingTimer) {
+    clearTimeout(lightboxLoadingTimer);
+    lightboxLoadingTimer = null;
+  }
+  if (!lightboxState) return;
+  if (lightboxState.hls) lightboxState.hls.destroy();
+  if (lightboxState.keyHandler) document.removeEventListener('keydown', lightboxState.keyHandler);
+  lightboxState.modal.remove();
+  lightboxState = null;
 }
 
 function toggleGallery() {

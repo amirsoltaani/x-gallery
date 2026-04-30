@@ -86,14 +86,14 @@ body.xg-no-scroll::-webkit-scrollbar {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.2s;
 }
 
-#xg-overlay .xg-cell:hover img {
-  transform: scale(1.03);
+#xg-overlay .xg-cell {
+  cursor: pointer;
 }
 
-/* Video always fixed-positioned, sized to match cell by default */
+/* Photo + video both fixed-positioned so they can pop out of grid flow */
+#xg-overlay .xg-cell.xg-photo img,
 #xg-overlay .xg-cell video {
   position: fixed;
   top: var(--cell-y);
@@ -106,8 +106,9 @@ body.xg-no-scroll::-webkit-scrollbar {
   pointer-events: none;
 }
 
-/* Video cells pop out at native aspect ratio on hover */
-#xg-overlay .xg-cell.xg-video.xg-popped video {
+/* Pop out at native aspect ratio on hover */
+#xg-overlay .xg-cell.xg-popped img,
+#xg-overlay .xg-cell.xg-popped video {
   width: var(--pop-w);
   height: var(--pop-h);
   object-fit: contain;
@@ -124,8 +125,8 @@ body.xg-no-scroll::-webkit-scrollbar {
   font-size: 12px;
 }
 
-/* Video Player Modal */
-#xg-player-modal {
+/* Lightbox (photos + videos with arrow nav) */
+#xg-lightbox {
   position: fixed;
   inset: 0;
   z-index: 9999999;
@@ -134,41 +135,92 @@ body.xg-no-scroll::-webkit-scrollbar {
   justify-content: center;
 }
 
-#xg-player-modal .xg-player-backdrop {
+#xg-lightbox .xg-lb-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.9);
 }
 
-#xg-player-modal .xg-player-container {
+#xg-lightbox .xg-lb-stage {
   position: relative;
+  z-index: 1;
   max-width: 90vw;
   max-height: 85vh;
-  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-#xg-player-modal .xg-player-close {
-  position: absolute;
-  top: -40px;
-  right: 0;
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 32px;
-  cursor: pointer;
-  padding: 4px 12px;
-  line-height: 1;
-}
-
-#xg-player-modal .xg-player-close:hover {
-  color: #1d9bf0;
-}
-
-#xg-player-modal .xg-player-video {
+#xg-lightbox .xg-lb-media {
   display: block;
   max-width: 90vw;
   max-height: 85vh;
   border-radius: 8px;
   background: #000;
   outline: none;
+}
+
+#xg-lightbox .xg-lb-close,
+#xg-lightbox .xg-lb-prev,
+#xg-lightbox .xg-lb-next {
+  position: absolute;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+
+#xg-lightbox .xg-lb-close {
+  top: 20px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  font-size: 28px;
+}
+
+#xg-lightbox .xg-lb-prev,
+#xg-lightbox .xg-lb-next {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 56px;
+  height: 56px;
+  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#xg-lightbox .xg-lb-prev { left: 20px; }
+#xg-lightbox .xg-lb-next { right: 20px; }
+
+#xg-lightbox .xg-lb-close:hover,
+#xg-lightbox .xg-lb-prev:not(:disabled):hover,
+#xg-lightbox .xg-lb-next:not(:disabled):hover {
+  background: #1d9bf0;
+}
+
+#xg-lightbox .xg-lb-prev:disabled,
+#xg-lightbox .xg-lb-next:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#xg-lightbox .xg-lb-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
 }
