@@ -23,9 +23,29 @@ function getTweetId(article) {
   return match ? match[1] : null;
 }
 
-function getAuthor(article) {
-  const handle = article.querySelector('a[href^="/"][role="link"] span');
-  return handle ? handle.textContent : '';
+function getPostInfo(article, statusLink) {
+  // Handle comes straight from the status URL: /USERNAME/status/ID
+  let handle = '';
+  if (statusLink) {
+    const m = statusLink.match(/(?:twitter|x)\.com\/([^/]+)\/status\//);
+    if (m) handle = '@' + m[1];
+  }
+  // Display name from the User-Name block (strip any trailing @handle/timestamp)
+  let name = '';
+  const nameEl = article.querySelector('div[data-testid="User-Name"]');
+  if (nameEl) {
+    const firstLink = nameEl.querySelector('a[role="link"]');
+    if (firstLink) {
+      name = firstLink.textContent.trim();
+      const at = name.indexOf('@');
+      if (at > 0) name = name.slice(0, at).trim();
+    }
+  }
+  // Tweet text
+  let text = '';
+  const textEl = article.querySelector('div[data-testid="tweetText"]');
+  if (textEl) text = textEl.textContent.trim();
+  return { name, handle, text };
 }
 
 function extractMedia(article) {
@@ -56,13 +76,17 @@ function extractMedia(article) {
 
   if (images.length === 0 && !videoPoster) return;
 
-  const link = article.querySelector('a[href*="/status/"]');
+  const linkEl = article.querySelector('a[href*="/status/"]');
+  const link = linkEl ? linkEl.href : null;
+  const info = getPostInfo(article, link);
   collected.set(id, {
     images,
     videoPoster,
     videoId,
-    link: link ? link.href : null,
-    author: getAuthor(article),
+    link,
+    name: info.name,
+    handle: info.handle,
+    text: info.text,
   });
 
   if (galleryOpen) renderGallery();
@@ -105,11 +129,8 @@ function renderGallery() {
     if (data.images.length === 0 && !data.videoPoster) continue;
     rendered.add(id);
     const src = data.images[0] || data.videoPoster;
-    const cell = document.createElement('a');
+    const cell = document.createElement('div');
     cell.className = 'xg-cell';
-    cell.href = data.link || '#';
-    cell.target = '_blank';
-    cell.rel = 'noopener';
     if (data.videoPoster && data.images.length === 0) {
       cell.classList.add('xg-video');
       cell.addEventListener('click', (e) => {
@@ -164,6 +185,18 @@ function renderGallery() {
       cell.addEventListener('mouseleave', () => {
         cell.classList.remove('xg-popped');
       });
+    }
+    if (data.link) {
+      const postLink = document.createElement('a');
+      postLink.className = 'xg-post-link';
+      postLink.href = data.link;
+      postLink.target = '_blank';
+      postLink.rel = 'noopener';
+      postLink.title = 'Open post on X';
+      postLink.textContent = 'View post ↗';
+      // Follow the link without triggering the cell's lightbox click
+      postLink.addEventListener('click', (e) => e.stopPropagation());
+      cell.appendChild(postLink);
     }
     if (data.images.length > 1) {
       const badge = document.createElement('span');
@@ -353,12 +386,13 @@ let lightboxState = null;
 function buildMediaList() {
   const list = [];
   for (const [id, data] of collected) {
+    const meta = { name: data.name, handle: data.handle, text: data.text };
     if (data.images.length > 0) {
       data.images.forEach((src, idx) => {
-        list.push({ tweetId: id, type: 'image', src, link: data.link, imageIndex: idx });
+        list.push({ tweetId: id, type: 'image', src, link: data.link, imageIndex: idx, ...meta });
       });
     } else if (data.videoPoster) {
-      list.push({ tweetId: id, type: 'video', poster: data.videoPoster, videoId: data.videoId, link: data.link });
+      list.push({ tweetId: id, type: 'video', poster: data.videoPoster, videoId: data.videoId, link: data.link, ...meta });
     }
   }
   return list;
@@ -379,10 +413,12 @@ function openLightbox(tweetId, imageIndex = 0) {
   modal.id = 'xg-lightbox';
   modal.innerHTML = `
     <div class="xg-lb-backdrop"></div>
+    <a class="xg-lb-post-link" target="_blank" rel="noopener">View post \u2197</a>
     <button class="xg-lb-close" aria-label="Close">\u00d7</button>
     <button class="xg-lb-prev" aria-label="Previous">\u2039</button>
     <button class="xg-lb-next" aria-label="Next">\u203a</button>
     <div class="xg-lb-counter"></div>
+    <div class="xg-lb-info"></div>
     <div class="xg-lb-stage"></div>
   `;
   document.body.appendChild(modal);
@@ -454,6 +490,41 @@ function tryLoadMoreAndAdvance(target) {
   tick();
 }
 
+function renderPostInfo(container, item) {
+  container.innerHTML = '';
+  if (!item || (!item.name && !item.handle && !item.text)) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = '';
+  if (item.name || item.handle) {
+    const meta = document.createElement('div');
+    meta.className = 'xg-lb-info-meta';
+    if (item.name) {
+      const n = document.createElement('span');
+      n.className = 'xg-lb-info-name';
+      n.textContent = item.name;
+      meta.appendChild(n);
+    }
+    if (item.handle) {
+      const h = document.createElement('a');
+      h.className = 'xg-lb-info-handle';
+      h.textContent = item.handle;
+      h.href = 'https://x.com/' + item.handle.replace(/^@/, '');
+      h.target = '_blank';
+      h.rel = 'noopener';
+      meta.appendChild(h);
+    }
+    container.appendChild(meta);
+  }
+  if (item.text) {
+    const t = document.createElement('div');
+    t.className = 'xg-lb-info-text';
+    t.textContent = item.text;
+    container.appendChild(t);
+  }
+}
+
 function showLightboxAt(index) {
   if (!lightboxState) return;
   lightboxState.index = index;
@@ -462,6 +533,16 @@ function showLightboxAt(index) {
   const counter = lightboxState.modal.querySelector('.xg-lb-counter');
   const prevBtn = lightboxState.modal.querySelector('.xg-lb-prev');
   const nextBtn = lightboxState.modal.querySelector('.xg-lb-next');
+  const postLink = lightboxState.modal.querySelector('.xg-lb-post-link');
+
+  if (item.link) {
+    postLink.href = item.link;
+    postLink.style.display = '';
+  } else {
+    postLink.style.display = 'none';
+  }
+
+  renderPostInfo(lightboxState.modal.querySelector('.xg-lb-info'), item);
 
   if (lightboxState.hls) {
     lightboxState.hls.destroy();

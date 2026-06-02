@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "X Gallery View",
-  "version": "0.4",
+  "version": "0.5",
   "description": "Personal gallery view for X timeline media",
   "permissions": ["webRequest", "storage"],
   "host_permissions": [

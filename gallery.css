@@ -125,6 +125,33 @@ body.xg-no-scroll::-webkit-scrollbar {
   font-size: 12px;
 }
 
+/* "View post" link, fades in on cell hover */
+#xg-overlay .xg-post-link {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10000; /* above popped-out media (9999) */
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+#xg-overlay .xg-cell:hover .xg-post-link {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#xg-overlay .xg-post-link:hover {
+  background: #1d9bf0;
+}
+
 /* Lightbox (photos + videos with arrow nav) */
 #xg-lightbox {
   position: fixed;
@@ -223,4 +250,74 @@ body.xg-no-scroll::-webkit-scrollbar {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
   font-weight: 600;
+}
+
+/* Account + post text shown in the modal */
+#xg-lightbox .xg-lb-info {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  max-width: min(80vw, 600px);
+  max-height: 28vh;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#xg-lightbox .xg-lb-info-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+#xg-lightbox .xg-lb-info-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+#xg-lightbox .xg-lb-info-handle {
+  color: #8899a6;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+#xg-lightbox .xg-lb-info-handle:hover {
+  color: #1d9bf0;
+  text-decoration: underline;
+}
+
+#xg-lightbox .xg-lb-info-text {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+#xg-lightbox .xg-lb-post-link {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  text-decoration: none;
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+#xg-lightbox .xg-lb-post-link:hover {
+  background: #1d9bf0;
 }
