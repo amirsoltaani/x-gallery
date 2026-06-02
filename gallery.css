@@ -107,8 +107,12 @@ body.xg-no-scroll::-webkit-scrollbar {
 /* Hidden by the media-type filter / search (feat/media-filter, feat/search) */
 #xg-overlay .xg-cell.xg-hidden { display: none !important; }
 
-/* feat/media-filter: active segmented button style added on this branch */
-/* feat/density: +/- disabled state added on this branch */
+/* feat/media-filter: active segmented button */
+#xg-overlay .xg-filter button.active { background: #1d9bf0; }
+#xg-overlay .xg-filter button.active:hover { background: #1a8cd8; }
+
+/* feat/density: disabled +/- at size bounds */
+#xg-overlay .xg-density button:disabled { opacity: 0.4; cursor: default; }
 
 #xg-overlay .xg-grid {
   display: grid;
@@ -117,7 +121,34 @@ body.xg-no-scroll::-webkit-scrollbar {
   padding: 4px;
 }
 
-/* feat/masonry: #xg-overlay.xg-masonry { ... } block added on this branch */
+/* feat/masonry: aspect-preserving column layout (disables the fixed-position pop-out) */
+#xg-overlay.xg-masonry .xg-grid {
+  display: block;
+  column-width: var(--xg-tile, 220px);
+  column-gap: 4px;
+}
+#xg-overlay.xg-masonry .xg-cell {
+  aspect-ratio: auto;
+  overflow: visible;
+  break-inside: avoid;
+  width: 100%;
+  display: inline-block;
+  margin: 0 0 4px;
+}
+#xg-overlay.xg-masonry .xg-cell.xg-photo img,
+#xg-overlay.xg-masonry .xg-cell video {
+  position: static;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  transform: none;
+  pointer-events: none;
+}
+#xg-overlay.xg-masonry .xg-cell:hover {
+  position: relative;
+  z-index: 5;
+  transform: scale(1.02);
+}
 
 #xg-overlay .xg-cell {
   position: relative;

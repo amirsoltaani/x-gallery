@@ -161,11 +161,13 @@ function renderGallery() {
       cell.addEventListener('mouseenter', () => {
         if (autoplayMode !== 'all') startCellVideo(cell);
         vid.muted = false;
-        syncAllVideoPositions();
-        const cellSize = cell.getBoundingClientRect().width;
-        cell.style.setProperty('--pop-w', (cellSize * 1.8) + 'px');
-        cell.style.setProperty('--pop-h', (cellSize * 1.8) + 'px');
-        cell.classList.add('xg-popped');
+        if (layoutMode !== 'masonry') {
+          syncAllVideoPositions();
+          const cellSize = cell.getBoundingClientRect().width;
+          cell.style.setProperty('--pop-w', (cellSize * 1.8) + 'px');
+          cell.style.setProperty('--pop-h', (cellSize * 1.8) + 'px');
+          cell.classList.add('xg-popped');
+        }
       });
       cell.addEventListener('mouseleave', () => {
         vid.muted = true;
@@ -186,11 +188,13 @@ function renderGallery() {
       img.loading = 'lazy';
       cell.appendChild(img);
       cell.addEventListener('mouseenter', () => {
-        syncAllVideoPositions();
-        const cellSize = cell.getBoundingClientRect().width;
-        cell.style.setProperty('--pop-w', (cellSize * 1.8) + 'px');
-        cell.style.setProperty('--pop-h', (cellSize * 1.8) + 'px');
-        cell.classList.add('xg-popped');
+        if (layoutMode !== 'masonry') {
+          syncAllVideoPositions();
+          const cellSize = cell.getBoundingClientRect().width;
+          cell.style.setProperty('--pop-w', (cellSize * 1.8) + 'px');
+          cell.style.setProperty('--pop-h', (cellSize * 1.8) + 'px');
+          cell.classList.add('xg-popped');
+        }
       });
       cell.addEventListener('mouseleave', () => {
         cell.classList.remove('xg-popped');
@@ -234,7 +238,7 @@ function scrollUnderlyingPage() {
 
 let syncRaf = null;
 function syncAllVideoPositions() {
-  if (!galleryEl) return;
+  if (!galleryEl || layoutMode === 'masonry') return;
   galleryEl.querySelectorAll('.xg-cell.xg-video, .xg-cell.xg-photo').forEach(cell => {
     const rect = cell.getBoundingClientRect();
     cell.style.setProperty('--cell-x', (rect.left + rect.width / 2) + 'px');
@@ -361,27 +365,54 @@ function applyFilters() {
   if (layoutMode !== 'masonry') requestAnimationFrame(syncAllVideoPositions);
 }
 
-// --- feat/media-filter: implement body ---
+// feat/media-filter: All / Photos / Videos
 function setMediaFilter(mode) {
-  // TODO(feat/media-filter): set mediaFilter + persist; update .xg-filter active button;
-  // stop now-hidden videos; applyFilters(); re-observe visible videos when autoplayMode==='all'.
+  mediaFilter = mode;
+  try { chrome.storage.local.set({ mediaFilter: mode }); } catch (e) { /* noop */ }
+  if (galleryEl) {
+    galleryEl.querySelectorAll('.xg-filter button').forEach((b) =>
+      b.classList.toggle('active', b.dataset.filter === mode));
+    if (mode === 'photos') galleryEl.querySelectorAll('.xg-cell.xg-video').forEach(stopCellVideo);
+  }
+  applyFilters();
+  // Re-arm autoplay for the now-visible videos
+  if (autoplayMode === 'all' && mode !== 'photos' && videoObserver && galleryEl) {
+    galleryEl.querySelectorAll('.xg-cell.xg-video:not(.xg-hidden)').forEach((c) => videoObserver.observe(c));
+  }
 }
 
-// --- feat/search: implement body ---
+// feat/search: debounced author/text filter
 function handleSearchInput(value) {
-  // TODO(feat/search): debounce ~200ms via searchDebounce; set searchQuery = value.trim().toLowerCase(); applyFilters().
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(() => {
+    searchQuery = (value || '').trim().toLowerCase();
+    applyFilters();
+  }, 200);
 }
 
-// --- feat/density: implement body ---
+// feat/density: adjustable tile size (shared --xg-tile drives grid + masonry column width)
 function setTileSize(px) {
-  // TODO(feat/density): clamp to [TILE_MIN, TILE_MAX]; persist; set --xg-tile on .xg-grid;
-  // re-seed syncAllVideoPositions in grid mode; disable +/- at bounds.
+  tileSize = Math.max(TILE_MIN, Math.min(TILE_MAX, px));
+  try { chrome.storage.local.set({ tileSize }); } catch (e) { /* noop */ }
+  if (galleryEl) {
+    const grid = galleryEl.querySelector('.xg-grid');
+    if (grid) grid.style.setProperty('--xg-tile', tileSize + 'px');
+    const minus = galleryEl.querySelector('.xg-tile-minus');
+    const plus = galleryEl.querySelector('.xg-tile-plus');
+    if (minus) minus.disabled = tileSize <= TILE_MIN;
+    if (plus) plus.disabled = tileSize >= TILE_MAX;
+  }
+  if (layoutMode !== 'masonry') requestAnimationFrame(syncAllVideoPositions);
 }
 
-// --- feat/masonry: implement body ---
+// feat/masonry: square grid <-> aspect-preserving columns
 function setLayoutMode(mode) {
-  // TODO(feat/masonry): set layoutMode + persist; toggle #xg-overlay.xg-masonry;
-  // update .xg-layout label; requestAnimationFrame(syncAllVideoPositions) when switching to grid.
+  layoutMode = mode;
+  try { chrome.storage.local.set({ layoutMode: mode }); } catch (e) { /* noop */ }
+  if (galleryEl) galleryEl.classList.toggle('xg-masonry', mode === 'masonry');
+  const btn = galleryEl && galleryEl.querySelector('.xg-layout');
+  if (btn) btn.textContent = 'Layout: ' + layoutLabels[mode];
+  if (mode === 'grid') requestAnimationFrame(syncAllVideoPositions);
 }
 
 function openGallery() {
@@ -423,6 +454,8 @@ function openGallery() {
   // Initialize control state from restored preferences
   galleryEl.classList.toggle('xg-masonry', layoutMode === 'masonry');
   galleryEl.querySelector('.xg-grid').style.setProperty('--xg-tile', tileSize + 'px');
+  galleryEl.querySelector('.xg-tile-minus').disabled = tileSize <= TILE_MIN;
+  galleryEl.querySelector('.xg-tile-plus').disabled = tileSize >= TILE_MAX;
   const activeFilterBtn = galleryEl.querySelector(`.xg-filter button[data-filter="${mediaFilter}"]`);
   if (activeFilterBtn) activeFilterBtn.classList.add('active');
   galleryOpen = true;
@@ -508,6 +541,18 @@ function openLightbox(tweetId, imageIndex = 0) {
     if (e.key === 'Escape') closeLightbox();
     else if (e.key === 'ArrowLeft') navigateLightbox(-1);
     else if (e.key === 'ArrowRight') navigateLightbox(1);
+    else if (e.key === 'd' || e.key === 'D') downloadCurrentItem();
+    else if (e.key === 'Enter') {
+      const it = lightboxState && lightboxState.list[lightboxState.index];
+      if (it && it.link) window.open(it.link, '_blank', 'noopener');
+    } else if (e.key === ' ') {
+      e.preventDefault();
+      const v = lightboxState && lightboxState.videoEl;
+      if (v) { v.paused ? v.play().catch(() => {}) : v.pause(); }
+    } else if (e.key === 'm' || e.key === 'M') {
+      const v = lightboxState && lightboxState.videoEl;
+      if (v) v.muted = !v.muted;
+    }
   };
   document.addEventListener('keydown', keyHandler);
 
