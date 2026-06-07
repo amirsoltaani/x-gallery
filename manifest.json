@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "X Gallery View",
-  "version": "0.8.0",
-  "description": "Personal gallery view for X timeline media",
+  "name": "X Media Gallery — Download Photos & Videos",
+  "short_name": "X Gallery",
+  "version": "0.8.1",
+  "description": "Browse your X (Twitter) timeline as a media gallery and download photos and videos — videos save with sound.",
   "permissions": ["webRequest", "storage"],
   "host_permissions": [
     "https://x.com/*",
@@ -23,7 +24,7 @@
     "128": "icon128.png"
   },
   "action": {
-    "default_title": "Toggle Gallery View",
+    "default_title": "Toggle X Media Gallery",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",

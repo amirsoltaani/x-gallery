@@ -1,4 +1,4 @@
-X Gallery View turns your X (Twitter) timeline into a media-first gallery. Click the
+X Media Gallery turns your X (Twitter) timeline into a media-first gallery — and downloads any photo or video in one click (videos save with sound). Click the
 extension icon and the page flips into a clean grid of every image and video from the
 tweets you've loaded. Click again to go back to the normal timeline.
 
@@ -45,7 +45,7 @@ FEATURES
 
 PRIVACY
 
-X Gallery View does not collect, transmit, or share any data. Everything happens locally
+X Media Gallery does not collect, transmit, or share any data. Everything happens locally
 in your browser — including downloads, which are assembled on your machine. Media comes
 from X's own CDN, the same source the X website uses. Your preferences are stored locally
 via Chrome's storage API. Nothing leaves your machine.
@@ -66,7 +66,7 @@ Source code, issues, and contributions: https://github.com/stin90/x-gallery
 
 SUPPORT DEVELOPMENT
 
-X Gallery View is free, open source, and ad-free. If it's useful to you, you can chip in
+X Media Gallery is free, open source, and ad-free. If it's useful to you, you can chip in
 to support continued development:
 • GitHub Sponsors: https://github.com/sponsors/stin90
 • Ko-fi: https://ko-fi.com/stin90

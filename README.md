@@ -1,4 +1,4 @@
-# X Gallery View
+# X Media Gallery — Download Photos & Videos
 
 A Chrome extension that turns your X (Twitter) timeline into a media-first gallery grid.
 
@@ -30,7 +30,7 @@ Click the extension icon and the page flips into a clean grid of every image and
 ## Usage
 
 1. Open [x.com](https://x.com)
-2. Click the X Gallery View toolbar icon to enter gallery view
+2. Click the X Media Gallery toolbar icon to enter gallery view
 3. Use the **Autoplay** button in the gallery's top bar to toggle grid autoplay
 4. Hover any video to play it with sound
 5. Click the icon again (or the **Close** button) to return to the normal timeline
@@ -51,7 +51,7 @@ The content script reads tweet articles already on the page, extracts media URLs
 
 ## Support
 
-X Gallery View is free, open source, and ad-free. If it's been useful, you can support development:
+X Media Gallery is free, open source, and ad-free. If it's been useful, you can support development:
 
 - ❤️ [GitHub Sponsors](https://github.com/sponsors/stin90)
 - ☕ [Ko-fi](https://ko-fi.com/stin90)

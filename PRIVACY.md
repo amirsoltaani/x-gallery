@@ -1,10 +1,10 @@
-# Privacy Policy for X Gallery View
+# Privacy Policy for X Media Gallery
 
 **Last updated:** April 26, 2026
 
 ## Data Collection
 
-X Gallery View does **not** collect, store, transmit, or share any user data. The extension operates entirely within your browser.
+X Media Gallery does **not** collect, store, transmit, or share any user data. The extension operates entirely within your browser.
 
 ## How It Works
 
